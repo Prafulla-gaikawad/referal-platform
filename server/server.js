@@ -16,13 +16,21 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV === "production"
-        ? process.env.CLIENT_URL
-        : ["http://localhost:3000", "http://127.0.0.1:3000"],
+    origin: [
+      process.env.CLIENT_URL,
+      "https://helpful-cajeta-f1a22b.netlify.app",
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Access-Control-Allow-Origin",
+      "Access-Control-Allow-Credentials",
+    ],
+    exposedHeaders: ["Content-Length", "X-Foo", "X-Bar"],
   })
 );
 
