@@ -24,230 +24,75 @@ exports.register = async (req, res) => {
       name,
       email,
       password,
-      phone,
-      address,
-      userType,
       businessName,
       industry,
+      phone,
       website,
+      address,
+      userType,
       referralCode,
       customerId,
       businessId,
       campaignId,
-      referralId,
-      isReferral,
     } = req.body;
-
-    // Validate required fields
-    if (!name || !email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide name, email, and password",
-      });
-    }
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: "User already exists",
+        message: "User with this email already exists",
       });
     }
 
-    // Handle different user types
-    if (userType === "business") {
-      // Validate business name
-      if (!businessName) {
-        return res.status(400).json({
-          success: false,
-          message: "Business name is required",
-        });
-      }
+    // Determine if this is a referral registration
+    const isReferral = customerId && businessId && campaignId;
 
-      // Create business user
-      const user = await User.create({
-        name,
-        email,
-        password,
-        phone,
-        address,
-        role: "business",
-      });
+    // Only handle business registrations
+    // Create business user
+    const user = await User.create({
+      name,
+      email,
+      password,
+      phone,
+      address,
+      role: "business",
+    });
 
-      // Create business profile
-      const business = await Business.create({
-        user: user._id,
-        businessName: businessName,
-        industry,
-        website,
-        contactEmail: email,
-        contactPhone: phone,
-        address: address,
-      });
+    // Create business
+    const business = await Business.create({
+      businessName: businessName || `${name}'s Business`,
+      industry,
+      website,
+      owner: user._id,
+    });
 
-      // Generate token
-      const token = generateToken(user._id);
+    // Update user with business reference
+    await User.findByIdAndUpdate(user._id, {
+      business: business._id,
+    });
 
-      res.status(201).json({
-        success: true,
-        user: {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          businessId: business._id,
-          businessName: business.businessName,
-        },
-        token,
-      });
-    } else if (userType === "customer") {
-      // Handle pre-created customer from referral
-      if (isReferral && customerId && businessId) {
-        // Create customer user account
-        const user = await User.create({
-          name,
-          email,
-          password,
-          phone,
-          address,
-          role: "customer",
-        });
+    // Generate token
+    const token = generateToken(user._id);
 
-        // Link user to existing customer
-        await Customer.findByIdAndUpdate(customerId, {
-          user: user._id,
-        });
-
-        // Generate token
-        const token = generateToken(user._id);
-
-        res.status(201).json({
-          success: true,
-          user: {
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            customerId: customerId,
-            businessId: businessId,
-            campaignId: campaignId,
-          },
-          token,
-        });
-      }
-      // Handle regular customer registration with referral code
-      else if (referralCode) {
-        // Validate referral code
-        if (!referralCode) {
-          return res.status(400).json({
-            success: false,
-            message: "Referral code is required for customer registration",
-          });
-        }
-
-        // Find the referral record
-        const referral = await Referral.findOne({ referralCode });
-
-        if (!referral) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid referral code",
-          });
-        }
-
-        // Get business ID from the referral
-        const businessId = referral.business;
-
-        // Create customer user
-        const user = await User.create({
-          name,
-          email,
-          password,
-          phone,
-          address,
-          role: "customer",
-        });
-
-        // Create customer record for the new user
-        const customer = await Customer.create({
-          name,
-          email,
-          phone,
-          address,
-          user: user._id,
-          business: businessId,
-          referredBy: referral.referrer,
-          referralCampaign: referral.campaign,
-          isReferral: true,
-        });
-
-        // Update referral status
-        referral.referee = {
-          name,
-          email,
-          phone,
-          convertedToCustomer: true,
-          customerId: customer._id,
-        };
-        referral.status = "converted";
-
-        // Set referralLink if it's not already set
-        if (!referral.referralLink) {
-          referral.referralLink = `code:${referralCode}`;
-        }
-
-        await referral.save();
-
-        // Update campaign statistics
-        await Campaign.findByIdAndUpdate(referral.campaign, {
-          $inc: {
-            "statistics.successfulReferrals": 1,
-            "statistics.pendingReferrals": -1,
-          },
-        });
-
-        // Update referrer statistics
-        await Customer.findByIdAndUpdate(referral.referrer, {
-          $inc: {
-            "referralStats.successfulReferrals": 1,
-            "referralStats.pendingReferrals": -1,
-          },
-        });
-
-        // Generate token
-        const token = generateToken(user._id);
-
-        res.status(201).json({
-          success: true,
-          user: {
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            customerId: customer._id,
-            businessId: businessId,
-            campaignId: referral.campaign,
-          },
-          token,
-        });
-      } else {
-        return res.status(400).json({
-          success: false,
-          message: "Referral information is required for customer registration",
-        });
-      }
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid user type",
-      });
-    }
+    res.status(201).json({
+      success: true,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        businessId: business._id,
+        businessName: business.businessName,
+      },
+      token,
+    });
   } catch (error) {
     console.error("Registration error:", error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Server error during registration",
+      error: error.message,
     });
   }
 };
