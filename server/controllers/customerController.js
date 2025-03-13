@@ -853,50 +853,19 @@ exports.createPublicCustomer = async (req, res) => {
 
     // Get business name
     const business = await Business.findById(businessId);
-    const businessName = business ? business.name : "Business";
-
-    // Send welcome email to the new customer
-    try {
-      // Create email transporter
-      const transporter = nodemailer.createTransport({
-        service: process.env.EMAIL_SERVICE,
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      });
-
-      // Prepare email content
-      const subject = `Welcome to ${businessName}!`;
-      const body = `Hello ${name},\n\nThank you for joining ${businessName}! We're excited to have you as our customer.\n\nYou were referred by ${
-        referrer.name
-      } and have received the following reward: ${
-        campaign.refereeReward?.description || "A special offer"
-      }\n\nIf you have any questions, please don't hesitate to contact us.\n\nBest regards,\n${businessName} Team`;
-
-      // Send email
-      await transporter.sendMail({
-        from: `${businessName} <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject,
-        text: body,
-      });
-    } catch (error) {
-      console.error("Email sending error:", error);
-    }
 
     res.status(201).json({
       success: true,
       message: "Customer created successfully",
       data: {
         customer,
-        businessId,
-        businessName,
         referral,
         rewards: {
           referrer: referrerReward,
           referee: refereeReward,
         },
+        businessId,
+        businessName: business?.name || "",
       },
     });
   } catch (error) {
