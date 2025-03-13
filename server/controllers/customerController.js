@@ -108,10 +108,14 @@ exports.createCustomer = async (req, res) => {
       address,
       source: referralData.source || source || "direct",
       ...referralData,
-      tags: [
-        ...(tags || []),
-        referralData.source === "referral" ? "referred" : [],
-      ].filter(Boolean),
+      tags: Array.isArray(tags)
+        ? [
+            ...tags,
+            referralData.source === "referral" ? "referred" : null,
+          ].filter(Boolean)
+        : [referralData.source === "referral" ? "referred" : null].filter(
+            Boolean
+          ),
       notes,
     });
 
