@@ -17,8 +17,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
     origin: [
-      process.env.CLIENT_URL,
       "https://helpful-cajeta-f1a22b.netlify.app",
+      process.env.CLIENT_URL,
       "http://localhost:3000",
       "http://127.0.0.1:3000",
     ],
