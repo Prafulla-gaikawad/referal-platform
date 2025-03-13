@@ -115,7 +115,7 @@ const CustomerSchema = new mongoose.Schema(
 // Generate referral link
 CustomerSchema.pre("save", function (next) {
   if (!this.referralLink && this.referralCampaign) {
-    this.referralLink = `${process.env.CLIENT_URL}/refer/${this._id}/${this.referralCampaign}`;
+    this.referralLink = `https://helpful-cajeta-f1a22b.netlify.app/refer/${this._id}/${this.referralCampaign}`;
   }
   next();
 });

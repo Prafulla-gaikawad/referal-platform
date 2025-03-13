@@ -65,7 +65,7 @@ exports.createReferral = async (req, res) => {
       .toString(36)
       .substring(2, 8)
       .toUpperCase();
-    const referralLink = `${process.env.CLIENT_URL}/refer/${campaign._id}/${referrerId}`;
+    const referralLink = `https://helpful-cajeta-f1a22b.netlify.app/refer/${referrerId}/${campaignId}`;
 
     // Create shareable links for different platforms
     const shareableLinks = {
@@ -1016,7 +1016,7 @@ exports.convertPublicReferral = async (req, res) => {
           convertedToCustomer: false,
         },
         referralCode,
-        referralLink: `${process.env.CLIENT_URL}/refer/${campaignId}/${referrerId}`,
+        referralLink: `https://helpful-cajeta-f1a22b.netlify.app/refer/${referrerId}/${campaignId}`,
         status: "clicked",
       });
 
