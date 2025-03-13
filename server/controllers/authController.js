@@ -78,9 +78,12 @@ exports.register = async (req, res) => {
       // Create business profile
       const business = await Business.create({
         user: user._id,
-        name: businessName,
+        businessName: businessName,
         industry,
         website,
+        contactEmail: email,
+        contactPhone: phone,
+        address: address,
       });
 
       // Generate token
@@ -94,6 +97,7 @@ exports.register = async (req, res) => {
           email: user.email,
           role: user.role,
           businessId: business._id,
+          businessName: business.businessName,
         },
         token,
       });
