@@ -114,8 +114,8 @@ const CustomerSchema = new mongoose.Schema(
 
 // Generate referral link
 CustomerSchema.pre("save", function (next) {
-  if (!this.referralLink) {
-    this.referralLink = `${process.env.CLIENT_URL}/refer/${this._id}`;
+  if (!this.referralLink && this.referralCampaign) {
+    this.referralLink = `${process.env.CLIENT_URL}/refer/${this._id}/${this.referralCampaign}`;
   }
   next();
 });

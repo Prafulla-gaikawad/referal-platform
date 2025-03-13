@@ -835,7 +835,7 @@ exports.generateReferralCode = async (req, res) => {
       .toUpperCase();
 
     // Generate a shareable referral link
-    const baseReferralLink = `${process.env.CLIENT_URL}/refer/${campaign._id}/${customerId}`;
+    const baseReferralLink = `${process.env.CLIENT_URL}/refer/${customerId}/${campaignId}`;
 
     // Create shareable links for different platforms
     const shareableLinks = {
