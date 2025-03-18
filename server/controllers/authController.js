@@ -64,7 +64,16 @@ exports.register = async (req, res) => {
       businessName: businessName || `${name}'s Business`,
       industry,
       website,
-      owner: user._id,
+      user: user._id,
+      contactEmail: email,
+      contactPhone: phone,
+      address: {
+        street: "",
+        city: "",
+        state: "",
+        zipCode: "",
+        country: "",
+      },
     });
 
     // Update user with business reference
