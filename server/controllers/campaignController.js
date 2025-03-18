@@ -1,6 +1,7 @@
 const Campaign = require("../models/Campaign");
 const Business = require("../models/Business");
 const Customer = require("../models/Customer");
+const { sendBulkSMS } = require("../utils/smsService");
 
 // @desc    Create a new campaign
 // @route   POST /api/campaigns
@@ -54,6 +55,39 @@ exports.createCampaign = async (req, res) => {
       defaultMessage,
       followUpSettings,
     });
+
+    // Get all customers with phone numbers and SMS notifications enabled
+    const customers = await Customer.find({
+      business: business._id,
+      phone: { $exists: true, $ne: null },
+      "preferences.smsNotifications": true,
+    });
+
+    if (customers.length > 0) {
+      // Prepare SMS message
+      const message = `New referral campaign: ${name}! ${description}\n\nRewards:\nReferrer: ${referrerReward}\nReferee: ${refereeReward}\n\nStart Date: ${new Date(
+        startDate
+      ).toLocaleDateString()}\nEnd Date: ${new Date(
+        endDate
+      ).toLocaleDateString()}\n\nShare and earn rewards!`;
+
+      // Get phone numbers
+      const phoneNumbers = customers.map((customer) => customer.phone);
+
+      // Send SMS notifications
+      const smsResults = await sendBulkSMS(phoneNumbers, message);
+
+      // Log SMS results
+      console.log("SMS Notification Results:", smsResults);
+
+      // Update campaign with notification status
+      campaign.notifications = {
+        smsSent: true,
+        smsSentAt: new Date(),
+        smsResults,
+      };
+      await campaign.save();
+    }
 
     res.status(201).json({
       success: true,

@@ -119,15 +119,30 @@ const CampaignSchema = new mongoose.Schema(
         type: Boolean,
         default: false,
       },
-      frequency: {
-        type: Number, // Days
-        default: 3,
-      },
-      maxFollowUps: {
+      delay: {
         type: Number,
-        default: 3,
+        default: 7,
       },
       message: String,
+    },
+    notifications: {
+      smsSent: {
+        type: Boolean,
+        default: false,
+      },
+      smsSentAt: Date,
+      smsResults: [
+        {
+          success: Boolean,
+          messageId: String,
+          error: String,
+        },
+      ],
+    },
+    status: {
+      type: String,
+      enum: ["draft", "active", "paused", "ended", "cancelled"],
+      default: "draft",
     },
     statistics: {
       totalReferrals: {
