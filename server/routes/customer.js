@@ -14,6 +14,7 @@ const {
   getPublicWelcomeInfo,
   createPublicCustomer,
   getPublicCustomer,
+  getTags,
 } = require("../controllers/customerController");
 const { protect, authorize } = require("../middleware/auth");
 
@@ -42,5 +43,16 @@ router.put(
 // Customer routes
 router.post("/:id/email", protect, sendEmail);
 router.post("/email", protect, sendBulkEmail);
+
+// All routes are protected
+router.use(protect);
+
+// Customer routes
+router.route("/tags").get(getTags);
+router
+  .route("/:id")
+  .get(getCustomer)
+  .put(updateCustomer)
+  .delete(deleteCustomer);
 
 module.exports = router;

@@ -910,3 +910,35 @@ exports.getPublicCustomer = async (req, res) => {
     });
   }
 };
+
+// @desc    Get all unique tags for a business
+// @route   GET /api/customers/tags
+// @access  Private
+exports.getTags = async (req, res) => {
+  try {
+    // Get business ID
+    const business = await Business.findOne({ user: req.user._id });
+    if (!business) {
+      return res.status(404).json({
+        success: false,
+        message: "Business profile not found",
+      });
+    }
+
+    // Get all unique tags for the business
+    const tags = await Customer.distinct("tags", {
+      business: business._id,
+      tags: { $exists: true, $ne: null },
+    });
+
+    res.status(200).json({
+      success: true,
+      tags: tags.filter(Boolean), // Remove any null/undefined values
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

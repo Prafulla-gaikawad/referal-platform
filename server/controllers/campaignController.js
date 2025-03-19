@@ -2,31 +2,14 @@ const Campaign = require("../models/Campaign");
 const Business = require("../models/Business");
 const Customer = require("../models/Customer");
 const { sendBulkSMS } = require("../utils/smsService");
+const { sendBulkEmail } = require("../utils/emailService");
 
 // @desc    Create a new campaign
 // @route   POST /api/campaigns
 // @access  Private
 exports.createCampaign = async (req, res) => {
   try {
-    const {
-      name,
-      description,
-      type,
-      task,
-      referrerReward,
-      refereeReward,
-      startDate,
-      endDate,
-      targetAudience,
-      conversionCriteria,
-      customConversionDetails,
-      landingPage,
-      sharingOptions,
-      defaultMessage,
-      followUpSettings,
-    } = req.body;
-
-    // Get business ID
+    // Get business profile
     const business = await Business.findOne({ user: req.user._id });
     if (!business) {
       return res.status(404).json({
@@ -36,57 +19,157 @@ exports.createCampaign = async (req, res) => {
       });
     }
 
-    // Create campaign
-    const campaign = await Campaign.create({
+    // Clean and validate campaign data
+    const campaignData = {
+      ...req.body,
       business: business._id,
-      name,
-      description,
-      type,
-      task,
-      referrerReward,
-      refereeReward,
-      startDate,
-      endDate,
-      targetAudience,
-      conversionCriteria,
-      customConversionDetails,
-      landingPage,
-      sharingOptions,
-      defaultMessage,
-      followUpSettings,
-    });
+      conversionCriteria: "form",
+      status: "draft",
+      active: true,
+      notifications: {
+        smsSent: false,
+        emailSent: false,
+      },
+      statistics: {
+        totalReferrals: 0,
+        successfulReferrals: 0,
+        pendingReferrals: 0,
+        totalRewards: 0,
+      },
+    };
 
-    // Get all customers with phone numbers and SMS notifications enabled
+    // Remove any fields that are not in the schema
+    delete campaignData.task;
+    delete campaignData._id;
+    delete campaignData.createdAt;
+    delete campaignData.updatedAt;
+
+    // Create campaign
+    const campaign = await Campaign.create(campaignData);
+
+    // Find all customers with email addresses
     const customers = await Customer.find({
       business: business._id,
-      phone: { $exists: true, $ne: null },
-      "preferences.smsNotifications": true,
+      email: { $exists: true, $ne: null },
     });
 
+    console.log(
+      `Found ${customers.length} customers to notify about new campaign`
+    );
+
+    if (customers.length === 0) {
+      console.log(
+        "No customers found with email addresses. Skipping email notifications."
+      );
+    }
+
     if (customers.length > 0) {
-      // Prepare SMS message
-      const message = `New referral campaign: ${name}! ${description}\n\nRewards:\nReferrer: ${referrerReward}\nReferee: ${refereeReward}\n\nStart Date: ${new Date(
-        startDate
-      ).toLocaleDateString()}\nEnd Date: ${new Date(
-        endDate
-      ).toLocaleDateString()}\n\nShare and earn rewards!`;
+      // Log customer emails for verification
+      console.log(
+        "Preparing to send emails to:",
+        customers.map((c) => c.email)
+      );
 
-      // Get phone numbers
-      const phoneNumbers = customers.map((customer) => customer.phone);
+      // Prepare email content
+      const subject = `New Campaign: ${campaign.name} - Special Offer Inside! 🎁`;
+      console.log("Email subject:", subject);
 
-      // Send SMS notifications
-      const smsResults = await sendBulkSMS(phoneNumbers, message);
+      // Create a reward description based on the campaign type
+      let rewardDescription = "";
+      if (campaign.referrerReward.type === "percentage") {
+        rewardDescription = `${campaign.referrerReward.value}% discount`;
+      } else if (campaign.referrerReward.type === "fixed") {
+        rewardDescription = `$${campaign.referrerReward.value} off`;
+      } else if (campaign.referrerReward.type === "points") {
+        rewardDescription = `${campaign.referrerReward.value} points`;
+      } else {
+        rewardDescription =
+          campaign.referrerReward.description || "special reward";
+      }
 
-      // Log SMS results
-      console.log("SMS Notification Results:", smsResults);
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #2c3e50; text-align: center;">New Campaign Alert! 🎉</h2>
+          
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #2c3e50; margin-top: 0;">${campaign.name}</h3>
+            <p style="color: #34495e;">${
+              campaign.description || "We have an exciting new offer for you!"
+            }</p>
+            
+            <div style="background-color: #ffffff; padding: 15px; border-radius: 6px; margin: 15px 0;">
+              <h4 style="color: #2c3e50; margin-top: 0;">Campaign Details:</h4>
+              <ul style="color: #34495e;">
+                <li>Reward: ${rewardDescription}</li>
+                <li>Start Date: ${new Date(
+                  campaign.startDate
+                ).toLocaleDateString()}</li>
+                ${
+                  campaign.endDate
+                    ? `<li>End Date: ${new Date(
+                        campaign.endDate
+                      ).toLocaleDateString()}</li>`
+                    : ""
+                }
+                <li>Type: ${campaign.type}</li>
+              </ul>
+            </div>
 
-      // Update campaign with notification status
-      campaign.notifications = {
-        smsSent: true,
-        smsSentAt: new Date(),
-        smsResults,
-      };
-      await campaign.save();
+            <div style="background-color: #ffffff; padding: 15px; border-radius: 6px; margin: 15px 0;">
+              <h4 style="color: #2c3e50; margin-top: 0;">How to Participate:</h4>
+              <p style="color: #34495e;">
+                ${
+                  campaign.description ||
+                  "Join our referral program and earn amazing rewards! Share with your friends and family to start earning."
+                }
+              </p>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin-top: 20px;">
+            <p style="color: #7f8c8d; font-size: 0.9em;">
+              This email was sent by ${business.name}.<br>
+              If you have any questions, please contact us.
+            </p>
+          </div>
+        </div>
+      `;
+
+      try {
+        // Send emails to all customers
+        console.log("Starting email send process...");
+        const emailResults = await sendBulkEmail(
+          customers.map((customer) => customer.email),
+          subject,
+          html
+        );
+
+        console.log(
+          "Email sending complete. Results:",
+          JSON.stringify(emailResults, null, 2)
+        );
+
+        // Update campaign with email notification status
+        campaign.notifications = {
+          emailSent: true,
+          emailSentAt: new Date(),
+          emailResults: emailResults.map((result) => ({
+            email: result.recipient,
+            success: result.success,
+            messageId: result.messageId,
+            error: result.error,
+          })),
+        };
+        await campaign.save();
+        console.log("Campaign updated with email notification status");
+      } catch (emailError) {
+        console.error(
+          "Error sending campaign notification emails:",
+          emailError.message,
+          "\nStack trace:",
+          emailError.stack
+        );
+      }
     }
 
     res.status(201).json({
@@ -94,6 +177,7 @@ exports.createCampaign = async (req, res) => {
       campaign,
     });
   } catch (error) {
+    console.error("Error creating campaign:", error);
     res.status(500).json({
       success: false,
       message: error.message,

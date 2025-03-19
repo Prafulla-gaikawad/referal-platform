@@ -21,11 +21,6 @@ const CampaignSchema = new mongoose.Schema(
       enum: ["discount", "gift", "points", "cash", "custom"],
       default: "discount",
     },
-    task: {
-      type: String,
-      required: [true, "Task description is required"],
-      trim: true,
-    },
     referrerReward: {
       type: {
         type: String,
@@ -67,8 +62,8 @@ const CampaignSchema = new mongoose.Schema(
     },
     conversionCriteria: {
       type: String,
-      enum: ["purchase", "signup", "subscription", "custom"],
-      default: "purchase",
+      enum: ["purchase", "signup", "subscription", "custom", "form"],
+      default: "form",
     },
     customConversionDetails: {
       type: String,
@@ -133,6 +128,20 @@ const CampaignSchema = new mongoose.Schema(
       smsSentAt: Date,
       smsResults: [
         {
+          number: String,
+          success: Boolean,
+          messageId: String,
+          error: String,
+        },
+      ],
+      emailSent: {
+        type: Boolean,
+        default: false,
+      },
+      emailSentAt: Date,
+      emailResults: [
+        {
+          email: String,
           success: Boolean,
           messageId: String,
           error: String,
@@ -162,14 +171,13 @@ const CampaignSchema = new mongoose.Schema(
         default: 0,
       },
     },
-    createdAt: {
-      type: Date,
-      default: Date.now,
-    },
   },
   {
     timestamps: true,
   }
 );
+
+// Remove any existing indexes
+CampaignSchema.index({});
 
 module.exports = mongoose.model("Campaign", CampaignSchema);

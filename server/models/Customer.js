@@ -28,6 +28,16 @@ const CustomerSchema = new mongoose.Schema(
     phone: {
       type: String,
       trim: true,
+      validate: {
+        validator: function (v) {
+          // Remove all non-digit characters
+          const digits = v.replace(/\D/g, "");
+          // Check if the number is between 10 and 15 digits
+          return digits.length >= 10 && digits.length <= 15;
+        },
+        message: (props) =>
+          `${props.value} is not a valid phone number! Please enter a valid phone number with 10-15 digits.`,
+      },
     },
     address: {
       street: String,
@@ -111,6 +121,24 @@ const CustomerSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Format phone number before saving
+CustomerSchema.pre("save", function (next) {
+  if (this.phone) {
+    // Remove all non-digit characters
+    const digits = this.phone.replace(/\D/g, "");
+
+    // If the number doesn't start with a country code, add it
+    if (digits.length === 10) {
+      // Assuming US/Canada numbers if no country code
+      this.phone = `+1${digits}`;
+    } else if (digits.length > 10) {
+      // If it has a country code, add the plus sign
+      this.phone = `+${digits}`;
+    }
+  }
+  next();
+});
 
 // Generate referral link
 CustomerSchema.pre("save", function (next) {

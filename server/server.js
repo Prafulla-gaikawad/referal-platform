@@ -49,6 +49,7 @@ const customerRoutes = require("./routes/customer");
 const rewardRoutes = require("./routes/reward");
 const analyticsRoutes = require("./routes/analytics");
 const aiRoutes = require("./routes/ai");
+const testRoutes = require("./routes/testRoutes");
 
 // Use routes
 app.use("/api/auth", authRoutes);
@@ -59,6 +60,7 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/rewards", rewardRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/test", testRoutes);
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, "uploads");
