@@ -18,26 +18,38 @@ exports.createBusiness = async (req, res) => {
     } = req.body;
 
     // Check if business already exists for this user
-    const existingBusiness = await Business.findOne({ user: req.user._id });
-    if (existingBusiness) {
-      return res.status(400).json({
-        success: false,
-        message: "Business profile already exists for this user",
+    let business = await Business.findOne({ user: req.user._id });
+
+    if (business) {
+      // Update existing business
+      business = await Business.findOneAndUpdate(
+        { user: req.user._id },
+        {
+          businessName: businessName || business.businessName,
+          description: description || business.description,
+          industry: industry || business.industry,
+          website: website || business.website,
+          contactEmail: contactEmail || business.contactEmail,
+          contactPhone: contactPhone || business.contactPhone,
+          address: address || business.address,
+          socialMedia: socialMedia || business.socialMedia,
+        },
+        { new: true, runValidators: true }
+      );
+    } else {
+      // Create new business
+      business = await Business.create({
+        user: req.user._id,
+        businessName: businessName || req.user.businessName,
+        description,
+        industry: industry || req.user.industry,
+        website,
+        contactEmail: contactEmail || req.user.email,
+        contactPhone: contactPhone || req.user.phone,
+        address: address || req.user.address,
+        socialMedia,
       });
     }
-
-    // Create business
-    const business = await Business.create({
-      user: req.user._id,
-      businessName: businessName || req.user.businessName,
-      description,
-      industry: industry || req.user.industry,
-      website,
-      contactEmail: contactEmail || req.user.email,
-      contactPhone: contactPhone || req.user.phone,
-      address: address || req.user.address,
-      socialMedia,
-    });
 
     res.status(201).json({
       success: true,
