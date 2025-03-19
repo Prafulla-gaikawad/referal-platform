@@ -151,7 +151,7 @@ exports.createCampaign = async (req, res) => {
 
         // Update campaign with email notification status
         campaign.notifications = {
-          emailSent: true,
+          emailSent: emailResults.some((result) => result.success),
           emailSentAt: new Date(),
           emailResults: emailResults.map((result) => ({
             email: result.recipient,

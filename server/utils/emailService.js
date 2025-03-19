@@ -1,6 +1,6 @@
 const nodemailer = require("nodemailer");
 
-// Validate required environment variables
+// Check if all required environment variables are present
 const requiredEnvVars = [
   "SMTP_HOST",
   "SMTP_PORT",
@@ -10,77 +10,101 @@ const requiredEnvVars = [
   "SMTP_FROM_EMAIL",
 ];
 
-// Check for missing environment variables
-const missingVars = requiredEnvVars.filter((varName) => !process.env[varName]);
-if (missingVars.length > 0) {
-  console.error(
-    "Missing required environment variables:",
-    missingVars.join(", ")
+const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
+
+if (missingEnvVars.length > 0) {
+  console.warn(
+    "Warning: Email service is not fully configured. Missing environment variables:",
+    missingEnvVars.join(", ")
   );
-  process.exit(1); // Exit the process if required variables are missing
+  console.warn(
+    "Email notifications will be disabled. To enable email notifications, please set all required environment variables."
+  );
 }
 
-// Create reusable transporter
-const transporter = nodemailer.createTransport({
-  service: "gmail", // Using Gmail service directly
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
-// Verify transporter configuration on startup
-transporter
-  .verify()
-  .then(() => {
-    console.log("Email service is ready to send emails");
-    console.log("Using email account:", process.env.SMTP_USER);
-  })
-  .catch((error) => {
-    console.error("Email configuration error:", error);
+// Create transporter only if all required variables are present
+let transporter = null;
+if (missingEnvVars.length === 0) {
+  transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT,
+    secure: process.env.SMTP_PORT === "465",
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
   });
 
-// Function to send email to a single recipient
-const sendEmail = async (to, subject, html) => {
-  try {
-    console.log(`Attempting to send email to: ${to}`);
+  // Verify transporter configuration
+  transporter.verify((error) => {
+    if (error) {
+      console.error("Error configuring email service:", error);
+    } else {
+      console.log("Email service is ready to send emails");
+      console.log("Using email account:", process.env.SMTP_FROM_EMAIL);
+    }
+  });
+}
 
-    const info = await transporter.sendMail({
-      from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_USER}>`,
+// Send email function with error handling
+const sendEmail = async (to, subject, html) => {
+  if (!transporter) {
+    console.warn(
+      "Email service is not configured. Skipping email send to:",
+      to
+    );
+    return {
+      success: false,
+      error: "Email service is not configured",
+    };
+  }
+
+  try {
+    const mailOptions = {
+      from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_FROM_EMAIL}>`,
       to,
       subject,
       html,
-    });
+    };
 
-    console.log("Email sent successfully to:", to);
-    console.log("Message ID:", info.messageId);
-    return { success: true, messageId: info.messageId };
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Email sent successfully:", info.messageId);
+    return {
+      success: true,
+      messageId: info.messageId,
+    };
   } catch (error) {
-    console.error(`Failed to send email to ${to}:`, error.message);
-    return { success: false, error: error.message };
+    console.error("Error sending email:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
   }
 };
 
-// Function to send email to multiple recipients
+// Send bulk emails with error handling
 const sendBulkEmail = async (recipients, subject, html) => {
-  console.log(`Starting bulk email send to ${recipients.length} recipients`);
-  const results = [];
-
-  for (const recipient of recipients) {
-    console.log(`Processing email for: ${recipient}`);
-    const result = await sendEmail(recipient, subject, html);
-    results.push({ recipient, ...result });
-
-    // Add a small delay between emails
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+  if (!transporter) {
+    console.warn(
+      "Email service is not configured. Skipping bulk email send to:",
+      recipients.length,
+      "recipients"
+    );
+    return recipients.map((recipient) => ({
+      recipient,
+      success: false,
+      error: "Email service is not configured",
+    }));
   }
 
-  const successful = results.filter((r) => r.success).length;
-  const failed = results.filter((r) => !r.success).length;
-  console.log(
-    `Bulk email sending completed. Success: ${successful}, Failed: ${failed}`
-  );
-
+  const results = [];
+  for (const recipient of recipients) {
+    const result = await sendEmail(recipient, subject, html);
+    results.push({
+      recipient,
+      ...result,
+    });
+  }
   return results;
 };
 
