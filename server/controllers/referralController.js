@@ -184,63 +184,63 @@ exports.getReferrals = async (req, res) => {
       });
     }
 
-    // Pagination
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
-    const startIndex = (page - 1) * limit;
-    const endIndex = page * limit;
-    const total = await Referral.countDocuments({ business: business._id });
+    // Find all referrals for this business
+    const referrals = await Referral.find({ business: business._id })
+      .populate("referrer", "name email")
+      .populate("campaign", "name referrerReward refereeReward")
+      .sort("-createdAt");
 
-    // Filter options
-    let query = { business: business._id };
+    // Filter out incomplete referrals and format the data
+    const formattedReferrals = referrals
+      .filter((referral) => {
+        // Only include referrals that have complete information
+        return (
+          referral.referrer &&
+          referral.referrer.name &&
+          referral.referrer.email &&
+          referral.referee &&
+          referral.referee.email &&
+          referral.campaign
+        );
+      })
+      .map((referral) => ({
+        _id: referral._id,
+        referrer: {
+          name: referral.referrer.name,
+          email: referral.referrer.email,
+        },
+        customer: {
+          name: referral.referee.name || referral.referee.email.split("@")[0],
+          email: referral.referee.email,
+        },
+        campaign: {
+          name: referral.campaign.name,
+          referrerReward: referral.campaign.referrerReward,
+          refereeReward: referral.campaign.refereeReward,
+        },
+        status: referral.status,
+        referrerRewardStatus: referral.referrerRewardStatus,
+        refereeRewardStatus: referral.refereeRewardStatus,
+        createdAt: referral.createdAt,
+      }));
 
-    if (req.query.campaign) {
-      query.campaign = req.query.campaign;
-    }
+    // Get recent referrals (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    if (req.query.status) {
-      query.status = req.query.status;
-    }
-
-    if (req.query.referrer) {
-      query.referrer = req.query.referrer;
-    }
-
-    // Get referrals
-    const referrals = await Referral.find(query)
-      .sort(req.query.sort || "-createdAt")
-      .skip(startIndex)
-      .limit(limit)
-      .populate("campaign", "name type referrerReward refereeReward")
-      .populate("referrer", "name email phone")
-      .populate("referee.customerId", "name email phone")
-      .populate("business", "name");
-
-    // Pagination result
-    const pagination = {};
-
-    if (endIndex < total) {
-      pagination.next = {
-        page: page + 1,
-        limit,
-      };
-    }
-
-    if (startIndex > 0) {
-      pagination.prev = {
-        page: page - 1,
-        limit,
-      };
-    }
+    const recentReferrals = formattedReferrals.filter(
+      (referral) => new Date(referral.createdAt) >= thirtyDaysAgo
+    );
 
     res.status(200).json({
       success: true,
-      count: referrals.length,
-      pagination,
-      total,
-      referrals,
+      data: {
+        all: formattedReferrals,
+        recent: recentReferrals,
+      },
     });
   } catch (error) {
+    console.error("Error getting referrals:", error);
     res.status(500).json({
       success: false,
       message: error.message,
